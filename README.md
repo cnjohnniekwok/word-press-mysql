@@ -600,7 +600,7 @@ can't guarantee that exactly these actions will be performed if
 ```
 
 ## Terraform Apply output:
-![Alt text](./screenshots/Screenshot%202023-10-21%20at%2014.36.34.png?raw=true "terraform apply output")
+![Alt text](./screenshots/Screenshot%202023-10-21%20at%2019.43.45.png?raw=true "terraform apply output")
 
 ## Wordpress and database deployment @ click-dealer namespace:
 ![Alt text](./screenshots/Screenshot%202023-10-21%20at%2014.17.15.png?raw=true "terraform apply output")
