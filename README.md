@@ -523,4 +523,4 @@ Wordpress started with database configured.
 ![Alt text](./screenshots/Screenshot%202023-10-21%20at%2014.19.59.png?raw=true "terraform apply output")
 
 ### Wordpress admin page:
-![Alt text](./screenshots/Screenshot%202023-10-21%20at%2014.36.34.png?raw=true "terraform apply output")
+![Alt text](./screenshots/Screenshot%202023-10-21%20at%2014.20.28.png?raw=true "terraform apply output")
