@@ -4,16 +4,16 @@ Hello Matt, I use Minikube to setup a local wordpress with terraform for the dem
 
 In this repository you will find all the kubernates resources I've create for the  wordpress. Here I deploy MySQL database to act as the RDS required for this wordpress servers.
 
-Since this is a local setup of a kubernates deployment, I only use one variable `var.project` to illustrate the re-reusability, we can change this variable to re-deploy everything to another kubernate cluster as a module. Usually there will be more such as access key, token, or some other project aspects variable. Since this is created for demonstration purpose, I export the `TF_VAR_project` as an local environment variable for terrafrom to read.
+Since this is a local setup of a kubernates deployment, I only use one variable `var.project` to illustrate the re-reusability there's 2 other optional variables for HPA usage. We can update this variable to re-deploy as a module to another kubernate cluster. Usually there will be more such as access key, token, or some other project aspects variable. Since this is created for demonstration purpose, I export the `TF_VAR_project` as an local environment variable for terrafrom to read.
 
 The kubernate resources will deploy in the following sequence:
 1. namespace
 2. presistent_volume_claim & secrets
 3. rds_mysql
 4. wordpress
-5. services
+5. services & horizontal_pod_autoscaler
 
-### Secrets
+## Secrets
 To further automate Wordpress & Mysql database initial configuration, I have an option to assign `WORDPRESS.*` and `MYSQL.*` environment variables to store the database credentials.
 
 I use `random_password` to generate random string for `db_username` and `db_password`. Putting them in a k8s secrets and pass it as environment variables for both deployments (mysql & wordpress). Avoiding plain text secret being expose in the tf plan.
@@ -22,7 +22,7 @@ If we are deploying an `aws_db_instance`, we will be looking a `awk_kms_key` for
 
 In this demonstration, the database host is pointing to the MySQL database k8s service. That can be update to point to an AWS RDS as well.
 
-### To run it locally
+## To run it locally
 Local setup:
 1. Clone this repository
 2. Install Docker, Minikube
@@ -38,7 +38,7 @@ Run the following commands:
 
 Visit the frontend at `http://localhost:5678`
 
-### Run it as a module
+## Run it as a module
 Local setup:
 1. Install Docker, Minikube
 2. Edit and save the following module block
@@ -59,17 +59,16 @@ Visit the frontend at `http://localhost:5678`
 Below is a screen shot of terrafrom plan output using module:
 ![Alt text](./screenshots/Screenshot%202023-10-21%20at%2016.42.03.png?raw=true "terraform apply output")
 
+**Please note:** For HPA to work in minikube, make sure enabling the metic server by running the following command:
+```
+minikube addons enable metrics-server
+```
+![Alt text](./screenshots/Screenshot%202023-10-21%20at%2019.16.27.png?raw=true "terraform apply output")
 
-### Terraform Plan
+
+## Terraform Plan
 
 ```
-Refreshing Terraform state in-memory prior to plan...
-The refreshed state will be used to calculate this plan, but will not be
-persisted to local or remote state storage.
-
-
-------------------------------------------------------------------------
-
 An execution plan has been generated and is shown below.
 Resource actions are indicated with the following symbols:
   + create
@@ -288,9 +287,29 @@ Terraform will perform the following actions:
                             }
                         }
 
+                      + liveness_probe {
+                          + failure_threshold     = 3
+                          + initial_delay_seconds = 30
+                          + period_seconds        = 15
+                          + success_threshold     = 1
+                          + timeout_seconds       = 1
+
+                          + http_get {
+                              + path   = "/"
+                              + port   = "80"
+                              + scheme = "HTTP"
+                            }
+                        }
+
                       + resources {
-                          + limits   = (known after apply)
-                          + requests = (known after apply)
+                          + limits   = {
+                              + "cpu"    = "0.5"
+                              + "memory" = "512Mi"
+                            }
+                          + requests = {
+                              + "cpu"    = "250m"
+                              + "memory" = "50Mi"
+                            }
                         }
                     }
 
@@ -302,6 +321,76 @@ Terraform will perform the following actions:
                       + condition_type = (known after apply)
                     }
                 }
+            }
+        }
+    }
+
+  # kubernetes_horizontal_pod_autoscaler_v2.hpa will be created
+  + resource "kubernetes_horizontal_pod_autoscaler_v2" "hpa" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + labels           = {
+              + "app" = "click-dealer-wordpress"
+            }
+          + name             = "click-dealer-wordpress-hpa"
+          + namespace        = "click-dealer-wordpress"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + max_replicas                      = 4
+          + min_replicas                      = 1
+          + target_cpu_utilization_percentage = (known after apply)
+
+          + behavior {
+              + scale_down {
+                  + select_policy                = "Min"
+                  + stabilization_window_seconds = 300
+
+                  + policy {
+                      + period_seconds = 15
+                      + type           = "Percent"
+                      + value          = 100
+                    }
+                }
+
+              + scale_up {
+                  + select_policy                = "Max"
+                  + stabilization_window_seconds = 180
+
+                  + policy {
+                      + period_seconds = 15
+                      + type           = "Percent"
+                      + value          = 100
+                    }
+                  + policy {
+                      + period_seconds = 15
+                      + type           = "Pods"
+                      + value          = 4
+                    }
+                }
+            }
+
+          + metric {
+              + type = "Resource"
+
+              + resource {
+                  + name = "cpu"
+
+                  + target {
+                      + average_utilization = 80
+                      + type                = "Utilization"
+                    }
+                }
+            }
+
+          + scale_target_ref {
+              + api_version = "apps/v1"
+              + kind        = "Deployment"
+              + name        = "click-dealer-wordpress"
             }
         }
     }
@@ -448,10 +537,10 @@ Terraform will perform the following actions:
               + "app" = "click-dealer-wordpress"
             }
           + session_affinity                  = "None"
-          + type                              = "NodePort"
+          + type                              = "ClusterIP"
 
           + port {
-              + node_port   = 32123
+              + node_port   = (known after apply)
               + port        = 80
               + protocol    = "TCP"
               + target_port = "80"
@@ -501,7 +590,7 @@ Terraform will perform the following actions:
       + upper            = true
     }
 
-Plan: 9 to add, 0 to change, 0 to destroy.
+Plan: 10 to add, 0 to change, 0 to destroy.
 
 ------------------------------------------------------------------------
 
@@ -510,10 +599,10 @@ can't guarantee that exactly these actions will be performed if
 "terraform apply" is subsequently run.
 ```
 
-### Terraform Apply output:
+## Terraform Apply output:
 ![Alt text](./screenshots/Screenshot%202023-10-21%20at%2014.36.34.png?raw=true "terraform apply output")
 
-### Wordpress and database deployment @ click-dealer namespace:
+## Wordpress and database deployment @ click-dealer namespace:
 ![Alt text](./screenshots/Screenshot%202023-10-21%20at%2014.17.15.png?raw=true "terraform apply output")
 
 
@@ -524,3 +613,14 @@ Wordpress started with database configured.
 
 ### Wordpress admin page:
 ![Alt text](./screenshots/Screenshot%202023-10-21%20at%2014.20.28.png?raw=true "terraform apply output")
+
+## Liveness Prob and HPA Test
+Set Liveness Prob to listen on port `1234` instead of `80`. [WORKS!]
+![Alt text](./screenshots/Screenshot%202023-10-21%20at%2019.20.53.png?raw=true "terraform apply output")
+
+Pod restarted due to liveness prob failure.
+![Alt text](./screenshots/Screenshot%202023-10-21%20at%2019.21.22.png?raw=true "terraform apply output")
+
+
+Set HPA to scale to max when CPU is over 1% [WORKS!] It scales to 4 pods.
+![Alt text](./screenshots/Screenshot%202023-10-21%20at%2019.24.00.png?raw=true "terraform apply output")
