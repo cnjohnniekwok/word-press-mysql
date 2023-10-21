@@ -4,7 +4,7 @@ Hello Matt, I use Minikube to setup a local wordpress with terraform for the dem
 
 In this repository you will find all the kubernates resources I've create for the  wordpress. Here I deploy MySQL database to act as the RDS required for this wordpress servers.
 
-Since this is a local setup of a kubernates deployment, I only use one variable `var.project` to illustrate the re-reusability, we can change this variable to re-deploy everything to another namespace. Usually there will be more such as access key, token, or some other project aspects variable. Since this is created for demonstration purpose, I export the `TF_VAR_project` as an local environment variable for terrafrom to read.
+Since this is a local setup of a kubernates deployment, I only use one variable `var.project` to illustrate the re-reusability, we can change this variable to re-deploy everything to another kubernate cluster as a module. Usually there will be more such as access key, token, or some other project aspects variable. Since this is created for demonstration purpose, I export the `TF_VAR_project` as an local environment variable for terrafrom to read.
 
 The kubernate resources will deploy in the following sequence:
 1. namespace
@@ -26,16 +26,38 @@ In this demonstration, the database host is pointing to the MySQL database k8s s
 Local setup:
 1. Clone this repository
 2. Install Docker, Minikube
-3. cd into <path-to-repository-dir>
+3. cd into [path-to-dir]/word-press-mysql
 
 Run the following commands:
 1. export TF_VAR_project=click-dealer-wordpress
-2. terraform init
-3. terraform plan
-4. terraform apply --auto-approve
-5. kubectl port-forward -n click-dealer-wordpress <wordpress-pod-name> 5678:80
+2. minikube start
+3. terraform init
+4. terraform plan
+5. terraform apply --auto-approve
+6. kubectl port-forward -n $TF_VAR_project [wordpress-pod-name] 5678:80
 
 Visit the frontend at `http://localhost:5678`
+
+### Run it as a module
+Local setup:
+1. Install Docker, Minikube
+2. Edit and save the following module block
+```
+module "wordpress-mysql" {
+  source = "git::https://github.com/cnjohnniekwok/word-press-mysql.git"
+  project = "wordpress-deployment-with-module"
+}
+```
+3. minikube start
+4. terraform init
+5. terraform plan
+6. terraform apply --auto-approve
+7. kubectl port-forward -n wordpress-deployment-with-module [wordpress-pod-name] 5678:80
+
+Visit the frontend at `http://localhost:5678`
+
+Below is a screen shot of terrafrom plan output using module:
+![Alt text](./screenshots/Screenshot%202023-10-21%20at%2016.42.03.png?raw=true "terraform apply output")
 
 
 ### Terraform Plan
