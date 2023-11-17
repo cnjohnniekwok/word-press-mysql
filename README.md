@@ -1,7 +1,5 @@
 ## Simple RDS - Wordpress to Kubernates deployment
 
-Hello Matt, I use Minikube to setup a local wordpress with terraform for the demonstration.
-
 In this repository you will find all the kubernates resources I've create for the  wordpress. Here I deploy MySQL database to act as the RDS required for this wordpress servers.
 
 Since this is a local setup of a kubernates deployment, I only use one variable `var.project` to illustrate the re-reusability there's 2 other optional variables for HPA usage. We can update this variable to re-deploy as a module to another kubernate cluster. Usually there will be more such as access key, token, or some other project aspects variable. Since this is created for demonstration purpose, I export the `TF_VAR_project` as an local environment variable for terrafrom to read.
